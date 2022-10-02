@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <threads.h>
+#include <time.h>
 
 typedef struct proc_data {
     uint64_t user;
@@ -35,7 +37,7 @@ int read_data_from_proc_stat(proc_data_t* ptr, int entries){
         char c = '\0';
         int buffer_index = 0;
         memset(buffer, 0, 100);
-        while(c != '\n'){
+        while(c != '\n' && buffer_index < 100){
             c = getc(file);
             if(c == '\0'){
                 fclose(file);
@@ -82,17 +84,32 @@ int calculate_proc_percentage(proc_data_total_t* prev, const proc_data_t* data){
 static proc_data_t processed_data[5];
 static proc_data_total_t prev_processed_data[4];
 
-int main(void){
-    memset(prev_processed_data, 0, 4 * sizeof(proc_data_total_t));
+int program(void* arg){
+    
+    const struct timespec delay = {.tv_sec =  1};
+        
     while(1){
         int ret = read_data_from_proc_stat(processed_data, 5);
+        if(ret != 0){
+            return -1;
+        }
+        
         int prc[4];
         for(int i = 0; i< 4; i++){
             prc[i] = calculate_proc_percentage(&prev_processed_data[i], &processed_data[i+1]);
         }
         printf("%d%% %d%% %d%% %d%%\n", prc[0], prc[1], prc[2], prc[3]); 
-        sleep(1);
+        
+        thrd_sleep(&delay, NULL);
     }
-    
+
+    return 0;
+}
+
+int main(void){
+    memset(prev_processed_data, 0, 4 * sizeof(proc_data_total_t));
+    thrd_t task_program;
+    thrd_create(&task_program, program, NULL);
+    thrd_join(task_program, NULL);
     return 0;
 }
