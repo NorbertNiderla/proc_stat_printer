@@ -1,11 +1,8 @@
 COMPILER = $(CC)
 CFLAGS = -Wall -Wextra -pthread
 
-app: main.c
+app: main.c ringbuffer.c proc_stat.c
 	$(COMPILER) main.c ringbuffer.c proc_stat.c -o app $(CFLAGS)
-
-clean:
-	rm ./app
 
 test_ringbuffer: ringbuffer.c test_ringbuffer.c
 	$(COMPILER) test_ringbuffer.c ringbuffer.c -o test_app $(CFLAGS)

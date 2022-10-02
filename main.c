@@ -19,7 +19,6 @@ static const struct timespec cond_waittime = {.tv_sec = 1};
 volatile sig_atomic_t done = 0;
  
 void term(int signum){
-    printf("term\n");
     done = signum;
     done = 1;
 }
