@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <signal.h>
 #include "proc_stat.h"
 #include "ringbuffer.h"
 
@@ -14,11 +15,20 @@ static mtx_t analyzer_feed_mtx;
 static cnd_t printer_feed_cnd;
 static mtx_t printer_feed_mtx;
 
+static const struct timespec cond_waittime = {.tv_sec = 1};
+volatile sig_atomic_t done = 0;
+ 
+void term(int signum){
+    printf("term\n");
+    done = signum;
+    done = 1;
+}
+
 int reader(void* arg){
     const struct timespec delay = {.tv_sec = 1};
     proc_data_t* data = NULL;
     int n = *((int*)arg);
-    while(true){
+    while(!done){
         data = read_data_from_proc_stat(&n);
         if(data != NULL && n > 0){
             ringbuffer_append(analyzer_buffer, (void*)data);
@@ -29,6 +39,8 @@ int reader(void* arg){
 
         thrd_sleep(&delay, NULL);
     }
+
+    return 0;
 }
 
 int analyzer(void* arg){
@@ -37,11 +49,11 @@ int analyzer(void* arg){
     int* prc = NULL;
     bool prev_initialized = false;
     int number_of_cpus = *((int*)arg);
-    while(true){
+    while(!done){
         data = (proc_data_t*)ringbuffer_pop(analyzer_buffer);
         if(data == NULL){
             mtx_lock(&analyzer_feed_mtx);
-            cnd_wait(&analyzer_feed_cnd, &analyzer_feed_mtx);
+            cnd_timedwait(&analyzer_feed_cnd, &analyzer_feed_mtx, &cond_waittime);
             mtx_unlock(&analyzer_feed_mtx);
             continue;
         }
@@ -63,17 +75,19 @@ int analyzer(void* arg){
         cnd_signal(&printer_feed_cnd);
         mtx_unlock(&printer_feed_mtx);
     }
+
+    return 0;
 }
 
 int printer(void* arg){
     int* prc = NULL;
     const struct timespec delay = {.tv_sec = 1};
     int number_of_cpus = *((int*)arg);
-    while(true){
+    while(!done){
         prc = ringbuffer_pop(printer_buffer);
         if(prc == NULL){
             mtx_lock(&printer_feed_mtx);
-            cnd_wait(&printer_feed_cnd, &printer_feed_mtx);
+            cnd_timedwait(&printer_feed_cnd, &printer_feed_mtx, &cond_waittime);
             mtx_unlock(&printer_feed_mtx);
             continue;
         }
@@ -85,9 +99,16 @@ int printer(void* arg){
         free(prc);
         thrd_sleep(&delay, NULL);
     }
+
+    return 0;
 }
 
 int main(void){
+    struct sigaction action;
+    memset(&action, 0, sizeof(struct sigaction));
+    action.sa_handler = term;
+    sigaction(SIGTERM, &action, NULL);
+
     /* is it safe assumption that number of cores won't change during
     * life of program? */
     int number_of_cpus = 0;
@@ -110,5 +131,12 @@ int main(void){
     thrd_join(reader_thread, NULL);
     thrd_join(analyzer_thread, NULL);
     thrd_join(printer_thread, NULL);
+
+    mtx_destroy(&analyzer_feed_mtx);
+    mtx_destroy(&printer_feed_mtx);
+    cnd_destroy(&analyzer_feed_cnd);
+    cnd_destroy(&printer_feed_cnd);
+    ringbuffer_destroy(analyzer_buffer);
+    ringbuffer_destroy(printer_buffer);
     return 0;
 }

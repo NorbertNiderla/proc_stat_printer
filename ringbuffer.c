@@ -69,6 +69,11 @@ void* ringbuffer_pop(ringbuffer_t buffer){
 void ringbuffer_destroy(ringbuffer_t buffer){
     ringbuffer_struct_t* this = (ringbuffer_struct_t*)buffer;
     mtx_destroy(&this->mtx);
+    void* data = ringbuffer_pop(buffer);
+    while(data != NULL){
+        free(data);
+        data = ringbuffer_pop(buffer);
+    }
     free(this);
 }
 
