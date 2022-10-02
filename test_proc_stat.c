@@ -25,6 +25,8 @@ int main(void){
             printf("%d%% ", prc[i]); 
         }
         printf("\n");
+
+        free(data);
         
         sleep(1);
     }

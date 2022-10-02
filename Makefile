@@ -2,7 +2,7 @@ CC=gcc
 CFLAGS = -Wall -Wextra -pthread
 
 app: main.c
-	$(CC) main.c -o app $(CFLAGS)
+	$(CC) main.c ringbuffer.c proc_stat.c -o app $(CFLAGS)
 
 clean:
 	rm ./app

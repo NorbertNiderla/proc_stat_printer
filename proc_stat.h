@@ -16,6 +16,8 @@
 
 #include <stdint.h>
 
+#define PROC_DATA_STATIC_INIT {.guest = 0, .guest_nice = 0, .idle = 0, .iowait = 0, .irq = 0, .nice = 0, .soft_irq = 0, .steal = 0, .system = 0, .user = 0}
+
 typedef struct proc_data {
     uint64_t user;
     uint64_t nice;

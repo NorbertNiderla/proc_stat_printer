@@ -9,17 +9,17 @@
 #include <stdbool.h>
 
 proc_data_t* read_data_from_proc_stat(int* number_of_cpus){
-    FILE* file;
-    char buffer[128];
-    file = fopen("/proc/stat", "r");
-    proc_data_t* output = NULL;
-    *number_of_cpus = 0;
-    int n = 0;
-    bool all_cpus = true;
-
+    char buffer[128] = { 0 };
+    FILE* file = fopen("/proc/stat", "r");
     if(file == NULL){
         return NULL;
     }
+
+    proc_data_t* output = NULL;
+    proc_data_t data = PROC_DATA_STATIC_INIT;
+    *number_of_cpus = 0;
+    int n = 0;
+    bool all_cpus = true;
 
     while(1){
         char c = '\0';
@@ -40,8 +40,6 @@ proc_data_t* read_data_from_proc_stat(int* number_of_cpus){
             continue;
         }
 
-        proc_data_t data;
-
         if(sscanf(buffer, "cpu%*d %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu",
             &data.user, &data.nice, &data.system, &data.idle,
             &data.iowait, &data.irq, &data.soft_irq, &data.steal,
@@ -57,7 +55,7 @@ proc_data_t* read_data_from_proc_stat(int* number_of_cpus){
     }
 
     fclose(file);
-    return 0;
+    return NULL;
 }
 
 void print_proc_data(proc_data_t* ptr){
@@ -77,5 +75,5 @@ int calculate_proc_percentage(proc_data_total_t* prev, const proc_data_t* data){
     prev->total = total;
     prev->idle = real_idle;
 
-    return (totald - idled) * 100 / totald;
+    return totald != 0 ? (totald - idled) * 100 / totald : 100;
 }
